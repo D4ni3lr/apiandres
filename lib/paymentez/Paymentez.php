@@ -109,10 +109,14 @@ class Paymentez
         }
         $params['application_code'] = APPLICATION_CODE;
 
+        $buyer_fiscal_number = $params['buyer_fiscal_number'];
+        unset($params['buyer_fiscal_number']);
+
         $timestamp = time();
         $auth_token = self::GENERATE_AUTH_TOKEN($params, $timestamp);
         $params['auth_timestamp'] = $timestamp;
         $params['auth_token'] = $auth_token;
+        $params['buyer_fiscal_number'] = $buyer_fiscal_number;
 
         $host = self::GET_HOST() . self::$ENDPOINTS["debitCard"];
         $query = self::BUILD_QUERY($params);
@@ -389,6 +393,7 @@ class Paymentez
 DATOS API
 application_code: HAPPY-CO
 key: Vx6v1nGa0GPjv6fmOWCa3IGsa1T45x
+Plataforma: https://paymentez.herokuapp.com/
 USUARIO: andresbanguera@happyhappyinc.com
 CONTRASEÑA: Suzuki069*
 

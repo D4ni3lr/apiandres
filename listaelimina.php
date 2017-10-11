@@ -23,6 +23,7 @@ $listado = Paymentez::LIST_CARD($uid);
             <td> <?php echo $tc['name'] ?> </td>
             <td> <?php echo $tc['termination'] ?> </td>
             <td><a href="eliminartc.php?cr=<?php echo $tc['card_reference']; ?>">Eliminar</a></td>
+            <td><a href="debitar.php?cr=<?php echo $tc['card_reference']; ?>">Debitar de tarjeta</a></td>
         </tr>
     <?php endforeach; ?>
 </table>
