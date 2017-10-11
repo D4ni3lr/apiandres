@@ -19,16 +19,22 @@ defined('APPLICATION_MODE') or define('APPLICATION_MODE', 'dev');
 /**
  * Urls del api
  */
-defined('DEV_ENDPOINT') or define('DEV_ENDPOINT', 'https://ccapi-stg.paymentez.com');
-defined('PROD_ENDPOINT') or define('PROD_ENDPOINT', 'https://ccapi.paymentez.com');
+defined('DEV_HOST') or define('DEV_HOST', 'https://ccapi-stg.paymentez.com');
+defined('PROD_HOST') or define('PROD_HOST', 'https://ccapi.paymentez.com');
 
 class Paymentez
 {
+    const VERIFY_BY_AMOUNT = "BY_AMOUNT";
+    const VERIFY_BY_AUTH_CODE = "BY_AUTH_CODE";
 
     private static $ENDPOINTS = [
         'addCard' => '/api/cc/add/',
         'listCard' => '/api/cc/list/',
         'debitCard' => '/api/cc/debit/',
+        'deleteCard' => '/api/cc/delete/',
+        'verify' => '/api/cc/verify/',
+        'refund' => '/api/cc/refund/',
+        'debitCardFrame' => '/api/cc/pay',
     ];
 
     /**
@@ -93,7 +99,7 @@ class Paymentez
      * (Ninguno de los sigueintes parametros debe estar presente en el array ya que hacen fallar el api)
      * - auth_timestamp
      * - auth_token
-     * - application_code
+     * - application_code (Se puede enviar pero será ignorado)
      * @param $params
      */
     public static function DEBIT_CARD($params)
@@ -101,18 +107,119 @@ class Paymentez
         if (!array_key_exists("session_id", $params)) {
             $params["session_id"] = self::GENERATE_SESSION_ID();
         }
+        $params['application_code'] = APPLICATION_CODE;
+
         $timestamp = time();
+        $auth_token = self::GENERATE_AUTH_TOKEN($params, $timestamp);
+        $params['auth_timestamp'] = $timestamp;
+        $params['auth_token'] = $auth_token;
+
+        $host = self::GET_HOST() . self::$ENDPOINTS["debitCard"];
+        $query = self::BUILD_QUERY($params);
+
+        return self::DO_POST($host, $query);
+    }
+
+    public static function DELETE_CARD($uid, $card_reference)
+    {
+        $timestamp = time();
+
+        $params = [
+            'application_code' => APPLICATION_CODE,
+            'uid' => $uid,
+            'card_reference' => $card_reference
+        ];
+        $auth_token = self::GENERATE_AUTH_TOKEN($params, $timestamp);
+        $params['auth_timestamp'] = $timestamp;
+        $params['auth_token'] = $auth_token;
+
+        $host = self::GET_HOST() . self::$ENDPOINTS["deleteCard"];
+        $query = self::BUILD_QUERY($params);
+
+        $headers = self::DO_POST($host, $query, false);
+
+        /* En este caso nos interesa que sea el estatus code 200 */
+        /* cuando se utiliza file_get_contents en el scope local se define la variable $http_response_header */
+        $respuesta = self::PARSE_FILE_GET_CONTENTS_HEADERS($headers);
+
+        return $respuesta["reponse_code"] === 200;
+    }
+
+    public static function VERIFY($uid, $transaction_id, $type, $value)
+    {
+        $timestamp = time();
+
+        $params = [
+            'application_code' => APPLICATION_CODE,
+            'uid' => $uid,
+            'transaction_id' => $transaction_id,
+            'type' => $type,
+            'value' => $value
+        ];
 
         $auth_token = self::GENERATE_AUTH_TOKEN($params, $timestamp);
         $params['auth_timestamp'] = $timestamp;
         $params['auth_token'] = $auth_token;
 
+        $host = self::GET_HOST() . self::$ENDPOINTS["debitCard"];
+        $query = self::BUILD_QUERY($params);
 
+        return self::DO_POST($host, $query);
+    }
+
+    public static function REFUND($transaction_id)
+    {
+        $timestamp = time();
+
+        $params = [
+            'application_code' => APPLICATION_CODE,
+            'transaction_id' => $transaction_id,
+        ];
+
+        $auth_token = self::GENERATE_AUTH_TOKEN($params, $timestamp);
+        $params['auth_timestamp'] = $timestamp;
+        $params['auth_token'] = $auth_token;
+
+        $host = self::GET_HOST() . self::$ENDPOINTS["refund"];
+        $query = self::BUILD_QUERY($params);
+
+        return self::DO_POST($host, $query);
+    }
+
+    public static function DEBIT_CARD_FRAME($params)
+    {
+        $params['application_code'] = APPLICATION_CODE;
+
+        $timestamp = time();
+        $auth_token = self::GENERATE_AUTH_TOKEN($params, $timestamp);
+        $params['auth_timestamp'] = $timestamp;
+        $params['auth_token'] = $auth_token;
+
+        return self::GENERATE_URL(self::$ENDPOINTS["debitCardFrame"], $params);
     }
 
     public static function GENERATE_SESSION_ID()
     {
         return self::UUID_SECURE();
+    }
+
+    private static function DO_POST($host, $query, $output = true)
+    {
+        $opts = array('http' =>
+            array(
+                'method' => 'POST',
+                'header' => 'Content-type: application/x-www-form-urlencoded',
+                'content' => $query
+            )
+        );
+        $context = stream_context_create($opts);
+
+        $rawOutput = file_get_contents($host, false, $context);
+        if ($output)
+            return json_decode($rawOutput, true);
+        else {
+            return $http_response_header;
+        }
     }
 
     /**
@@ -124,7 +231,12 @@ class Paymentez
     private static function GENERATE_URL($endpoint, $params)
     {
         $query = self::BUILD_QUERY($params);
-        return (APPLICATION_MODE == 'prod' ? PROD_ENDPOINT : DEV_ENDPOINT) . $endpoint . '?' . $query;
+        return self::GET_HOST() . $endpoint . '?' . $query;
+    }
+
+    private static function GET_HOST()
+    {
+        return APPLICATION_MODE == 'prod' ? PROD_HOST : DEV_HOST;
     }
 
     /**
@@ -170,6 +282,28 @@ class Paymentez
     }
 
     /**
+     * Convierte la respuesta de los encabezados de file_get_contents en un array más facil de leer
+     * fuente: http://php.net/manual/en/reserved.variables.httpresponseheader.php#117203
+     * @param $headers
+     * @return array
+     */
+    private static function PARSE_FILE_GET_CONTENTS_HEADERS($headers)
+    {
+        $head = array();
+        foreach ($headers as $k => $v) {
+            $t = explode(':', $v, 2);
+            if (isset($t[1]))
+                $head[trim($t[0])] = trim($t[1]);
+            else {
+                $head[] = $v;
+                if (preg_match("#HTTP/[0-9\.]+\s+([0-9]+)#", $v, $out))
+                    $head['reponse_code'] = intval($out[1]);
+            }
+        }
+        return $head;
+    }
+
+    /**
      * Esta funcion convierte el uuid de php en su representación numerica.
      * Fue tomada desde: http://php.net/manual/es/function.uniqid.php#96898
      * @param $in - valor del UUID
@@ -179,7 +313,8 @@ class Paymentez
      * @return bool|float|int|string
      * @deprecated  - El uid no es solo numerico.
      */
-    private static function UUID_TO_STRING($in, $to_num = false, $pad_up = false, $passKey = null)
+    private
+    static function UUID_TO_STRING($in, $to_num = false, $pad_up = false, $passKey = null)
     {
         $index = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         if ($passKey !== null) {
