@@ -6,5 +6,9 @@
 </head>
 <body>
 Ocurrió un error en el proceso
+<br>
+<?php echo $_GET["error_value"] ?>
+<br>
+<a href="index.html">Regresar al inicio</a>
 </body>
 </html>

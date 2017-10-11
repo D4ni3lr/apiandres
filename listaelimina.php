@@ -26,3 +26,5 @@ $listado = Paymentez::LIST_CARD($uid);
         </tr>
     <?php endforeach; ?>
 </table>
+
+<a href="index.html">Regresar al inicio</a>

@@ -6,7 +6,7 @@ echo Paymentez::ADD_CARD(
     '1234',
     'developer@developer.com',
     'http://localhost:63342/apiandres/success.html',
-    'http://localhost:63342/apiandres/error.html');
+    'http://localhost:63342/apiandres/error.php');
 
 
 echo "<h1>List Card</h1>";
