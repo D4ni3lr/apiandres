@@ -96,11 +96,43 @@ class Paymentez
 
     /**
      * Recibe todos los parametros que la documentación indica, excepto:
-     * (Ninguno de los sigueintes parametros debe estar presente en el array ya que hacen fallar el api)
+
+     * @param $params
+     */
+    /**
+     * @param $parametrosRequeridos - Son los parametros necesarios para generar el token.
+     * Nota: Ninguno de los sigueintes parametros debe estar presente en el array ya que hacen fallar el api
      * - auth_timestamp
      * - auth_token
      * - application_code (Se puede enviar pero será ignorado)
-     * @param $params
+     * Listado de parametros posibles:
+     * - card_reference
+     * - product_amount
+     * - product_description
+     * - dev_reference
+     * - vat
+     * - ip_address
+     * - session_id
+     * - uid
+     * - email
+     * - buyer_fiscal_number
+     * - seller_id
+     * - shipping_street
+     * - shipping_house_number
+     * - shipping_city
+     * - shipping_zip
+     * - shipping_state
+     * - shipping_country
+     * - shipping_district
+     * - shipping_additional_address_info
+     *
+     * @param array $parametrosOpcionales - Son los demás parametros que recibe el api
+     * Listado de parametros posibles:
+     * - product_discount
+     * - Installments
+     * - buyer_phone
+     *
+     * @return array - Array asociativo con la respuesta del api
      */
     public static function DEBIT_CARD($parametrosRequeridos, $parametrosOpcionales = [])
     {
