@@ -18,7 +18,7 @@ $urlError = "http://".$dir."error.php";
 
 $sessionID = null; //Si la aplicación maneja id de sesiones enviarla, se puede enviar una la libreria la genera.
 $uid = 1234;
-$url = Paymentez::ADD_CARD($uid, 'developer@developer.com', $urlSuccess, $urlError, $sessionID);
+$url = Paymentez::ADD_CARD($uid, 'developer@developer.com', $urlSuccess, $urlError, $sessionID, '3146785432');
 
 ?>
 <h1>Agregar Tarjeta</h1>

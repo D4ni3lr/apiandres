@@ -1,13 +1,11 @@
 <?php
 
-/* Definición de constantes */
-
 /**
  * Datos de Paymentez
  */
-//defined('APPLICATION_CODE') or define('APPLICATION_CODE', 'CiColApp');
 defined('APPLICATION_CODE') or define('APPLICATION_CODE', 'HAPPY-CO');
 defined('APPLICATION_KEY') or define('APPLICATION_KEY', 'Vx6v1nGa0GPjv6fmOWCa3IGsa1T45x');
+
 /**
  * Modo de aplicaicón
  * - dev: desarrollo
@@ -39,7 +37,9 @@ class Paymentez
 
     /**
      * Registra una TC
-     * Este metodo retorna una URL a la cual se le debe hacer un GET
+     * Este metodo retorna una URL a la cual se le debe hacer GET.
+     * Notas:
+     * - La documentación no indica que el $buyer_phone no se debe usar para generar el auth_token
      * @param $uid - Identificador unico del usuario en la aplicación
      * @param $email - Email del usuario con sesion iniciada
      * @param null $session_id - Código unico de la sesión, si se manda NULL se genera uno automaticamente.
@@ -58,13 +58,13 @@ class Paymentez
             'uid' => $uid,
             'email' => $email,
             'session_id' => $session_id,
-            'buyer_phone' => $buyer_phone,
             'response_type' => $responseType,
             'success_url' => $success_url,
             'failure_url' => $failure_url
         ];
 
         $auth_token = self::GENERATE_AUTH_TOKEN($params, $timestamp);
+        $params['buyer_phone'] = $buyer_phone;
         $params['auth_timestamp'] = $timestamp;
         $params['auth_token'] = $auth_token;
 
