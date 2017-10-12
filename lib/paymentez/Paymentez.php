@@ -102,26 +102,32 @@ class Paymentez
      * - application_code (Se puede enviar pero será ignorado)
      * @param $params
      */
-    public static function DEBIT_CARD($params)
+    public static function DEBIT_CARD($parametrosRequeridos, $parametrosOpcionales = [])
     {
-        if (!array_key_exists("session_id", $params)) {
-            $params["session_id"] = self::GENERATE_SESSION_ID();
+        if (is_null($parametrosOpcionales)) {
+            $parametrosOpcionales = [];
         }
-        $params['application_code'] = APPLICATION_CODE;
 
-        $buyer_fiscal_number = $params['buyer_fiscal_number'];
-        unset($params['buyer_fiscal_number']);
+        if (!array_key_exists("session_id", $parametrosRequeridos)) {
+            $parametrosRequeridos["session_id"] = self::GENERATE_SESSION_ID();
+        }
+
+        $parametrosRequeridos['application_code'] = APPLICATION_CODE;
+
+        $buyer_fiscal_number = $parametrosRequeridos['buyer_fiscal_number'];
+        unset($parametrosRequeridos['buyer_fiscal_number']);
 
         $timestamp = time();
-        $auth_token = self::GENERATE_AUTH_TOKEN($params, $timestamp);
-        $params['auth_timestamp'] = $timestamp;
-        $params['auth_token'] = $auth_token;
-        $params['buyer_fiscal_number'] = $buyer_fiscal_number;
+        $auth_token = self::GENERATE_AUTH_TOKEN($parametrosRequeridos, $timestamp);
+
+        $parametrosRequeridos['auth_timestamp'] = $timestamp;
+        $parametrosRequeridos['auth_token'] = $auth_token;
+        $parametrosRequeridos['buyer_fiscal_number'] = $buyer_fiscal_number;
 
         $host = self::GET_HOST() . self::$ENDPOINTS["debitCard"];
-        $query = self::BUILD_QUERY($params);
+        $query = self::BUILD_QUERY(array_merge($parametrosRequeridos, $parametrosOpcionales));
 
-        return self::DO_POST($host, $query);
+        return self::DO_POST_CURL($host, $query);
     }
 
     public static function DELETE_CARD($uid, $card_reference)
@@ -140,11 +146,7 @@ class Paymentez
         $host = self::GET_HOST() . self::$ENDPOINTS["deleteCard"];
         $query = self::BUILD_QUERY($params);
 
-        $headers = self::DO_POST($host, $query, false);
-
-        /* En este caso nos interesa que sea el estatus code 200 */
-        /* cuando se utiliza file_get_contents en el scope local se define la variable $http_response_header */
-        $respuesta = self::PARSE_FILE_GET_CONTENTS_HEADERS($headers);
+        $respuesta = self::DO_POST_CURL($host, $query);
 
         return $respuesta["reponse_code"] === 200;
     }
@@ -165,10 +167,10 @@ class Paymentez
         $params['auth_timestamp'] = $timestamp;
         $params['auth_token'] = $auth_token;
 
-        $host = self::GET_HOST() . self::$ENDPOINTS["debitCard"];
+        $host = self::GET_HOST() . self::$ENDPOINTS["verify"];
         $query = self::BUILD_QUERY($params);
 
-        return self::DO_POST($host, $query);
+        return self::DO_POST_CURL($host, $query);
     }
 
     public static function REFUND($transaction_id)
@@ -187,7 +189,7 @@ class Paymentez
         $host = self::GET_HOST() . self::$ENDPOINTS["refund"];
         $query = self::BUILD_QUERY($params);
 
-        return self::DO_POST($host, $query);
+        return self::DO_POST_CURL($host, $query);
     }
 
     public static function DEBIT_CARD_FRAME($params)
@@ -207,6 +209,42 @@ class Paymentez
         return self::UUID_SECURE();
     }
 
+    private static function DO_POST_CURL($host, $query)
+    {
+        $ch = curl_init();
+
+        if (FALSE === $ch)
+            return ["Error" => "No fue posible inicializar CURL"];
+
+        curl_setopt($ch, CURLOPT_URL, $host);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $query);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/x-www-form-urlencoded'));
+
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+        if (APPLICATION_MODE === 'dev') {
+            //¡Advertencia! se salta certificados self-signed
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        }
+
+        $server_output = curl_exec($ch);
+        $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if (FALSE === $server_output)
+            return ["Error" => "Code: " . curl_errno($ch) . " Mensaje: " . curl_error($ch)];
+
+        return ['reponse_code' => $httpcode, 'data' => json_decode($server_output, true)];
+    }
+
+    /**
+     * @param $host
+     * @param $query
+     * @param bool $output
+     * @return mixed
+     * @deprecated
+     */
     private static function DO_POST($host, $query, $output = true)
     {
         $opts = array('http' =>
@@ -248,7 +286,7 @@ class Paymentez
      * @param $timestamp - Timestamp de la solicitud
      * @return string - Retorna el token de seguridad
      */
-    private static function GENERATE_AUTH_TOKEN($params, $timestamp)
+    public static function GENERATE_AUTH_TOKEN($params, $timestamp)
     {
         ksort($params);
         $query = self::BUILD_QUERY($params) . '&' . $timestamp . '&' . APPLICATION_KEY;
@@ -290,6 +328,7 @@ class Paymentez
      * fuente: http://php.net/manual/en/reserved.variables.httpresponseheader.php#117203
      * @param $headers
      * @return array
+     * @deprecated
      */
     private static function PARSE_FILE_GET_CONTENTS_HEADERS($headers)
     {

@@ -6,8 +6,16 @@
  */
 include_once "lib/paymentez/Paymentez.php";
 
-$urlSuccess = "http://localhost:63342/apiandres/success.html";
-$urlError = "http://localhost:63342/apiandres/error.php";
+/* calculo las url de error y success esto no hace parte del api es solo para el ejemplo */
+$partes = explode("/", $_SERVER['REQUEST_URI']);
+$dir = $_SERVER['HTTP_HOST'];
+for ($i = 0; $i < count($partes) - 1; $i++) {
+    $dir .= $partes[$i] . "/";
+}
+
+$urlSuccess = "http://".$dir."success.html";
+$urlError = "http://".$dir."error.php";
+
 $sessionID = null; //Si la aplicación maneja id de sesiones enviarla, se puede enviar una la libreria la genera.
 $uid = 1234;
 $url = Paymentez::ADD_CARD($uid, 'developer@developer.com', $urlSuccess, $urlError, $sessionID);

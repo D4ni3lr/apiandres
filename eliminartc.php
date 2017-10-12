@@ -22,5 +22,7 @@ if ($result === true){
 
 ?>
 
+<br>
 <a href="listaelimina.php">Regresar al listado</a>
+<br>
 <a href="index.html">Regresar al inicio</a>

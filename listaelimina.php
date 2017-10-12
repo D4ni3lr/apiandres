@@ -16,6 +16,8 @@ $listado = Paymentez::LIST_CARD($uid);
         <th>Nombre</th>
         <th>Termina en</th>
         <th>Eliminar</th>
+        <th>Debitar</th>
+        <th>Debitar Frame</th>
     </tr>
     <?php foreach ($listado as $tc): ?>
         <tr>
@@ -24,6 +26,7 @@ $listado = Paymentez::LIST_CARD($uid);
             <td> <?php echo $tc['termination'] ?> </td>
             <td><a href="eliminartc.php?cr=<?php echo $tc['card_reference']; ?>">Eliminar</a></td>
             <td><a href="debitar.php?cr=<?php echo $tc['card_reference']; ?>">Debitar de tarjeta</a></td>
+            <td><a href="debitar_frame.php">Debitar desde frame</a></td>
         </tr>
     <?php endforeach; ?>
 </table>
