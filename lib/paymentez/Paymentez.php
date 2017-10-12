@@ -4,7 +4,8 @@
  * Datos de Paymentez
  */
 defined('APPLICATION_CODE') or define('APPLICATION_CODE', 'HAPPY-CO');
-defined('APPLICATION_KEY') or define('APPLICATION_KEY', 'Vx6v1nGa0GPjv6fmOWCa3IGsa1T45x');
+defined('DEV_APPLICATION_KEY') or define('DEV_APPLICATION_KEY', 'Vx6v1nGa0GPjv6fmOWCa3IGsa1T45x');
+defined('PROD_APPLICATION_KEY') or define('PROD_APPLICATION_KEY', 'NO TENGO ESTE DATO');
 
 /**
  * Modo de aplicaicón
@@ -95,11 +96,6 @@ class Paymentez
     }
 
     /**
-     * Recibe todos los parametros que la documentación indica, excepto:
-
-     * @param $params
-     */
-    /**
      * @param $parametrosRequeridos - Son los parametros necesarios para generar el token.
      * Nota: Ninguno de los sigueintes parametros debe estar presente en el array ya que hacen fallar el api
      * - auth_timestamp
@@ -162,10 +158,15 @@ class Paymentez
         return self::DO_POST_CURL($host, $query);
     }
 
+    /**
+     * Elimina una TC no retorna el output del server solo indica si el status code es OK.
+     * @param $uid
+     * @param $card_reference
+     * @return bool
+     */
     public static function DELETE_CARD($uid, $card_reference)
     {
         $timestamp = time();
-
         $params = [
             'application_code' => APPLICATION_CODE,
             'uid' => $uid,
@@ -183,6 +184,14 @@ class Paymentez
         return $respuesta["reponse_code"] === 200;
     }
 
+    /**
+     * Varifica las transacciones, ver la doc del api para mas info.
+     * @param $uid
+     * @param $transaction_id
+     * @param $type - Siempre usar: Paymentes::VERIFY_BY_AMOUNT o Paymentez::VERIFY_BY_AUTH_CODE
+     * @param $value
+     * @return array - - Array asociativo con la respuesta del api
+     */
     public static function VERIFY($uid, $transaction_id, $type, $value)
     {
         $timestamp = time();
@@ -205,6 +214,10 @@ class Paymentez
         return self::DO_POST_CURL($host, $query);
     }
 
+    /**
+     * @param $transaction_id
+     * @return array - Array asociativo con la respuesta del api
+     */
     public static function REFUND($transaction_id)
     {
         $timestamp = time();
@@ -224,6 +237,20 @@ class Paymentez
         return self::DO_POST_CURL($host, $query);
     }
 
+    /**
+     * Retorna la URL del formulario de pagos directo.
+     * @param $params
+     * Parametros disponibles:
+     * - uid
+     * - dev_reference
+     * - product_description
+     * - product_code
+     * - product_amount
+     * - success_url
+     * - failure_url
+     * - review_url
+     * @return string
+     */
     public static function DEBIT_CARD_FRAME($params)
     {
         $params['application_code'] = APPLICATION_CODE;
@@ -236,11 +263,21 @@ class Paymentez
         return self::GENERATE_URL(self::$ENDPOINTS["debitCardFrame"], $params);
     }
 
+    /**
+     * Genera un código unico de sesión evitando coliciones.
+     * @return bool|string
+     */
     public static function GENERATE_SESSION_ID()
     {
         return self::UUID_SECURE();
     }
 
+    /**
+     * Hace una petición post del tipo x-www-form-urlencoded
+     * @param $host
+     * @param $query
+     * @return array
+     */
     private static function DO_POST_CURL($host, $query)
     {
         $ch = curl_init();
@@ -271,32 +308,6 @@ class Paymentez
     }
 
     /**
-     * @param $host
-     * @param $query
-     * @param bool $output
-     * @return mixed
-     * @deprecated
-     */
-    private static function DO_POST($host, $query, $output = true)
-    {
-        $opts = array('http' =>
-            array(
-                'method' => 'POST',
-                'header' => 'Content-type: application/x-www-form-urlencoded',
-                'content' => $query
-            )
-        );
-        $context = stream_context_create($opts);
-
-        $rawOutput = file_get_contents($host, false, $context);
-        if ($output)
-            return json_decode($rawOutput, true);
-        else {
-            return $http_response_header;
-        }
-    }
-
-    /**
      * Genera las direcciones url para hacer las solicitudes
      * @param $endpoint
      * @param $params
@@ -308,9 +319,19 @@ class Paymentez
         return self::GET_HOST() . $endpoint . '?' . $query;
     }
 
+    /**
+     * @return string - Host de prod o desarrollo
+     */
     private static function GET_HOST()
     {
         return APPLICATION_MODE == 'prod' ? PROD_HOST : DEV_HOST;
+    }
+
+    /**
+     * @return string - Key de prod o desarrollo
+     */
+    private static function GET_KEY(){
+        return APPLICATION_MODE == 'prod' ? PROD_APPLICATION_KEY : DEV_APPLICATION_KEY;
     }
 
     /**
@@ -321,7 +342,7 @@ class Paymentez
     public static function GENERATE_AUTH_TOKEN($params, $timestamp)
     {
         ksort($params);
-        $query = self::BUILD_QUERY($params) . '&' . $timestamp . '&' . APPLICATION_KEY;
+        $query = self::BUILD_QUERY($params) . '&' . $timestamp . '&' . self::GET_KEY();
         $token = hash('sha256', $query);
         return $token;
     }
@@ -337,6 +358,8 @@ class Paymentez
     }
 
     /**
+     * Genera un UUID que evita coliciones.
+     *
      * Tomado desde: http://php.net/manual/es/function.uniqid.php#120123
      * @param int $lenght
      * @return bool|string
@@ -354,113 +377,10 @@ class Paymentez
         }
         return substr(bin2hex($bytes), 0, $lenght);
     }
-
-    /**
-     * Convierte la respuesta de los encabezados de file_get_contents en un array más facil de leer
-     * fuente: http://php.net/manual/en/reserved.variables.httpresponseheader.php#117203
-     * @param $headers
-     * @return array
-     * @deprecated
-     */
-    private static function PARSE_FILE_GET_CONTENTS_HEADERS($headers)
-    {
-        $head = array();
-        foreach ($headers as $k => $v) {
-            $t = explode(':', $v, 2);
-            if (isset($t[1]))
-                $head[trim($t[0])] = trim($t[1]);
-            else {
-                $head[] = $v;
-                if (preg_match("#HTTP/[0-9\.]+\s+([0-9]+)#", $v, $out))
-                    $head['reponse_code'] = intval($out[1]);
-            }
-        }
-        return $head;
-    }
-
-    /**
-     * Esta funcion convierte el uuid de php en su representación numerica.
-     * Fue tomada desde: http://php.net/manual/es/function.uniqid.php#96898
-     * @param $in - valor del UUID
-     * @param bool $to_num - true: Convierte en numero, false: de numero a string
-     * @param bool $pad_up - limita la salida a 'n' cantidad de caracteres
-     * @param null $passKey - Posible password para pasar a numero|string
-     * @return bool|float|int|string
-     * @deprecated  - El uid no es solo numerico.
-     */
-    private
-    static function UUID_TO_STRING($in, $to_num = false, $pad_up = false, $passKey = null)
-    {
-        $index = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        if ($passKey !== null) {
-            // Although this function's purpose is to just make the
-            // ID short - and not so much secure,
-            // you can optionally supply a password to make it harder
-            // to calculate the corresponding numeric ID
-
-            for ($n = 0; $n < strlen($index); $n++) {
-                $i[] = substr($index, $n, 1);
-            }
-
-            $passhash = hash('sha256', $passKey);
-            $passhash = (strlen($passhash) < strlen($index))
-                ? hash('sha512', $passKey)
-                : $passhash;
-
-            for ($n = 0; $n < strlen($index); $n++) {
-                $p[] = substr($passhash, $n, 1);
-            }
-
-            array_multisort($p, SORT_DESC, $i);
-            $index = implode($i);
-        }
-
-        $base = strlen($index);
-
-        if ($to_num) {
-            // Digital number  <<--  alphabet letter code
-            $in = strrev($in);
-            $out = 0;
-            $len = strlen($in) - 1;
-            for ($t = 0; $t <= $len; $t++) {
-                $bcpow = bcpow($base, $len - $t);
-                $out = $out + strpos($index, substr($in, $t, 1)) * $bcpow;
-            }
-
-            if (is_numeric($pad_up)) {
-                $pad_up--;
-                if ($pad_up > 0) {
-                    $out -= pow($base, $pad_up);
-                }
-            }
-            $out = sprintf('%F', $out);
-            $out = substr($out, 0, strpos($out, '.'));
-        } else {
-            // Digital number  -->>  alphabet letter code
-            if (is_numeric($pad_up)) {
-                $pad_up--;
-                if ($pad_up > 0) {
-                    $in += pow($base, $pad_up);
-                }
-            }
-
-            $out = "";
-            for ($t = floor(log($in, $base)); $t >= 0; $t--) {
-                $bcp = bcpow($base, $t);
-                $a = floor($in / $bcp) % $base;
-                $out = $out . substr($index, $a, 1);
-                $in = $in - ($a * $bcp);
-            }
-            $out = strrev($out); // reverse
-        }
-
-        return $out;
-    }
 }
 
 
 /*
-
 DATOS API
 application_code: HAPPY-CO
 key: Vx6v1nGa0GPjv6fmOWCa3IGsa1T45x
@@ -470,6 +390,4 @@ CONTRASEÑA: Suzuki069*
 
 RUTA CALLBACK
 https://happyhappyinc.com/happy1/app/api/paymentez/data
-
-
  */
