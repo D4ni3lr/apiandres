@@ -330,7 +330,7 @@ class Paymentez
     /**
      * @return string - Key de prod o desarrollo
      */
-    private static function GET_KEY(){
+    public static function GET_KEY(){
         return APPLICATION_MODE == 'prod' ? PROD_APPLICATION_KEY : DEV_APPLICATION_KEY;
     }
 
